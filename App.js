@@ -4,6 +4,7 @@ import LoginPage from './components/login';
 import RegistrationPage from './components/registration';
 import AdditionalDetailsPage from './components/additionaldetails';
 import DashboardPage from './components/DashBoard';
+import PGLayout from './components/PGLayout';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
@@ -32,7 +33,8 @@ export default function App() {
         <Stack.Screen name="Registration" component={RegistrationPage} />
         <Stack.Screen name="PG Details" component={AdditionalDetailsPage}/>
         <Stack.Screen name="Dashboard" component={DashboardPage} />
-      </Stack.Navigator>
+        <Stack.Screen name="PGLayout" component={PGLayout}/>
+      </Stack.Navigator> 
     </NavigationContainer>
   );
 }
