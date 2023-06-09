@@ -10,7 +10,7 @@ export default function DashboardPage({ route }) {
   const [pgLayoutData, setPGLayoutData] = useState(null);
   const [currentOccupancy, setCurrentOccupancy] = useState(0);
   const [currentMonthlyRevenue, setCurrentMonthlyRevenue] = useState(0);
-  const [totalDue, setTotalDue] = useState(0);
+  const [totalPayment, setTotalPayment] = useState(0);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -28,59 +28,90 @@ export default function DashboardPage({ route }) {
       }
     };
 
-    const fetchPGLayoutData = async () => {
-      try {
-        const pgLayoutDataJSON = await AsyncStorage.getItem(username);
-        const parsedPGLayoutData = JSON.parse(pgLayoutDataJSON);
-
-        if (parsedPGLayoutData) {
-          setPGLayoutData(parsedPGLayoutData);
-          setCurrentOccupancy(parsedPGLayoutData.currentOccupancy || 0);
-          setCurrentMonthlyRevenue(parsedPGLayoutData.currentMonthlyRevenue || 0);
-          setTotalDue(parsedPGLayoutData.totalDue || 0);
-        }
-      } catch (error) {
-        console.log('Error fetching PG layout data:', error);
-      }
-    };
-
     fetchUserData();
-    fetchPGLayoutData();
-  }, [username, pgLayoutData]);
+  }, [username]);
 
-  const handleAddPGLayout = () => {
-    navigation.navigate('PGLayout', {
-      username: username
-    });
+  useEffect(() => {
+    fetchPGLayoutData();
+  }, [pgLayoutData]);
+
+  const fetchPGLayoutData = async () => {
+    try {
+      const pgLayoutDataJSON = await AsyncStorage.getItem(username);
+      const parsedPGLayoutData = JSON.parse(pgLayoutDataJSON);
+
+      if (parsedPGLayoutData) {
+        setPGLayoutData(parsedPGLayoutData);
+      }
+    } catch (error) {
+      console.log('Error fetching PG layout data:', error);
+    }
   };
 
+  const fetchCurrentOccupancyData = async () => {
+    try {
+      const currentOccupancyDataJSON = await AsyncStorage.getItem(`${username}data`);
+      let parsedCurrentOccupancyData = JSON.parse(currentOccupancyDataJSON);
+
+      if (!parsedCurrentOccupancyData) {
+        parsedCurrentOccupancyData = { currentOccupancy: 0 };
+        await AsyncStorage.setItem(`${username}data`, JSON.stringify(parsedCurrentOccupancyData));
+      }
+
+      setCurrentOccupancy(parsedCurrentOccupancyData.currentOccupancy || 0);
+    } catch (error) {
+      console.log('Error fetching current occupancy data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentOccupancyData();
+  }, []);
+
   const handleOnboard = () => {
-    const temp = currentOccupancy + 1;
-    setCurrentOccupancy(temp);
-    updatePGLayoutData();
+    const updatedOccupancy = currentOccupancy + 1;
+    const maxOccupancy = pgLayoutData?.numFloors * pgLayoutData?.numRoomsPerFloor * pgLayoutData?.numBedsPerRoom || 0;
+    if(updatedOccupancy<=maxOccupancy)
+    {
+      setCurrentOccupancy(updatedOccupancy);
+
+      const occupancyData = { currentOccupancy: updatedOccupancy };
+      AsyncStorage.setItem(`${username}data`, JSON.stringify(occupancyData))
+        .then(() => {
+          console.log('Current occupancy updated successfully.');
+        })
+        .catch((error) => {
+          console.log('Error updating current occupancy:', error);
+        });
+    }
   };
 
   const handleOffboard = () => {
     if (currentOccupancy > 0) {
-      const temp = currentOccupancy - 1;
-      setCurrentOccupancy(temp);
-      updatePGLayoutData();
+      const updatedOccupancy = currentOccupancy - 1;
+      setCurrentOccupancy(updatedOccupancy);
+
+      const occupancyData = { currentOccupancy: updatedOccupancy };
+      AsyncStorage.setItem(`${username}data`, JSON.stringify(occupancyData))
+        .then(() => {
+          console.log('Current occupancy updated successfully.');
+        })
+        .catch((error) => {
+          console.log('Error updating current occupancy:', error);
+        });
     }
   };
 
-  const updatePGLayoutData = async () => {
-    if (pgLayoutData) {
-      const updatedPGLayoutData = {
-        ...pgLayoutData,
-        currentOccupancy: currentOccupancy,
-      };
-      try {
-        await AsyncStorage.setItem(username, JSON.stringify(updatedPGLayoutData));
-        setPGLayoutData(updatedPGLayoutData);
-      } catch (error) {
-        console.log('Error updating PG layout data:', error);
-      }
-    }
+  const handleAddPGLayout = () => {
+    navigation.navigate('PGLayout', {
+      username: username,
+      updateData: updateDataOnReturn
+    });
+  };
+
+  const updateDataOnReturn = () => {
+    fetchPGLayoutData();
+    fetchCurrentOccupancyData();
   };
 
   return (
@@ -121,7 +152,7 @@ export default function DashboardPage({ route }) {
         </View>
         <View style={styles.extraInfoItem}>
           <Text style={styles.extraInfoTitle}>Current Monthly Revenue:</Text>
-          <Text style={styles.extraInfoValue}>{currentMonthlyRevenue}</Text>
+          <Text style={styles.extraInfoValue}>{pgLayoutData?.costPerBed*currentOccupancy}</Text>
         </View>
         <TouchableOpacity style={styles.onboardButton} onPress={handleOnboard}>
           <Text style={styles.buttonText}>Onboard</Text>
@@ -131,9 +162,9 @@ export default function DashboardPage({ route }) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.totalDueContainer}>
-        <Text style={styles.totalDueTitle}>Total Due:</Text>
-        <Text style={styles.totalDueValue}>{totalDue}</Text>
+      <View style={styles.totalPaymentContainer}>
+        <Text style={styles.totalPaymentTitle}>Total Payment:</Text>
+        <Text style={styles.totalPaymentValue}>{totalPayment}</Text>
       </View>
     </View>
   );
@@ -165,23 +196,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   infoTitle: {
-    fontSize: 16,
     fontWeight: 'bold',
   },
   infoValue: {
-    fontSize: 16,
+    flex: 1,
+    textAlign: 'right',
   },
   button: {
-    backgroundColor: '#007bff',
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 16,
+    backgroundColor: 'blue',
     borderRadius: 8,
-    marginTop: 20,
+    paddingVertical: 8,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
+    color: 'white',
+    textAlign: 'center',
     fontWeight: 'bold',
   },
   extraInfoContainer: {
@@ -197,39 +226,37 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   extraInfoTitle: {
-    fontSize: 16,
     fontWeight: 'bold',
   },
   extraInfoValue: {
-    fontSize: 16,
+    flex: 1,
+    textAlign: 'right',
   },
   onboardButton: {
-    backgroundColor: '#28a745',
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 16,
+    backgroundColor: 'green',
     borderRadius: 8,
-    marginTop: 20,
+    paddingVertical: 8,
   },
   offboardButton: {
-    backgroundColor: '#dc3545',
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: 'red',
     borderRadius: 8,
-    marginTop: 10,
+    paddingVertical: 8,
   },
-  totalDueContainer: {
+  totalPaymentContainer: {
     borderWidth: 1,
     borderColor: 'black',
     borderRadius: 8,
     padding: 16,
   },
-  totalDueTitle: {
-    fontSize: 16,
+  totalPaymentTitle: {
     fontWeight: 'bold',
+    marginBottom: 8,
   },
-  totalDueValue: {
-    fontSize: 16,
+  totalPaymentValue: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    textAlign: 'center',
   },
 });

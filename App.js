@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 30,
     height: 30,
-    marginLeft: 10,
+    marginLeft: 16,
+    borderRadius:4,
   },
 });
